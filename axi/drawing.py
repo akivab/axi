@@ -92,14 +92,11 @@ class Drawing(object):
     @property
     def bounds(self):
         if self._bounds is None:
-            points = self.points
-            if points:
-                x1 = min(x for x, y in points)
-                x2 = max(x for x, y in points)
-                y1 = min(y for x, y in points)
-                y2 = max(y for x, y in points)
-            else:
-                x1 = x2 = y1 = y2 = 0
+            points = self.points if self.points else [(0,0)]
+            x1 = min(x for x, y in points)
+            x2 = max(x for x, y in points)
+            y1 = min(y for x, y in points)
+            y2 = max(y for x, y in points)
             self._bounds = (x1, y1, x2, y2)
         return self._bounds
 
@@ -247,7 +244,7 @@ class Drawing(object):
         return Drawing(paths)
 
     def render(self, scale=109, margin=1, line_width=0.35/25.4,
-            bounds=None, show_bounds=True):
+            bounds=None, show_bounds=True, rgb=(1,1,1), surface=None):
         if cairo is None:
             raise Exception('Drawing.render() requires cairo')
         bounds = bounds or self.bounds
@@ -257,25 +254,26 @@ class Drawing(object):
         margin *= scale
         width = int(scale * w + margin * 2)
         height = int(scale * h + margin * 2)
-        surface = cairo.ImageSurface(cairo.FORMAT_RGB24, width, height)
-        dc = cairo.Context(surface)
+        newSurface = surface if surface else cairo.ImageSurface(cairo.FORMAT_RGB24, width, height)
+        dc = cairo.Context(newSurface)
         dc.set_line_cap(cairo.LINE_CAP_ROUND)
         dc.set_line_join(cairo.LINE_JOIN_ROUND)
         dc.translate(margin, margin)
         dc.scale(scale, scale)
         dc.translate(-x1, -y1)
         dc.set_source_rgb(1, 1, 1)
-        dc.paint()
+        if not surface:
+            dc.paint()
         if show_bounds:
             dc.set_source_rgb(0.5, 0.5, 0.5)
             dc.set_line_width(1 / scale)
             dc.rectangle(x1, y1, w, h)
             dc.stroke()
-        dc.set_source_rgb(0, 0, 0)
+        dc.set_source_rgb(*rgb)
         dc.set_line_width(line_width)
         for path in self.paths:
             dc.move_to(*path[0])
             for x, y in path:
                 dc.line_to(x, y)
         dc.stroke()
-        return surface
+        return newSurface
